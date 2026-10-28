@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Parquet Search</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+:root{--bg:#f7f7f5;--card:#fff;--tx:#1d1d1b;--mut:#6b6b66;--bd:#e2e2dc;--ac:#d9541e;--hi:#fff1c2;--lk:#e8f1ff;--ln:#c6efd3;--ok:#1a7f37;--warn:#9a6700;--bad:#c0392b;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161615;--card:#212120;--tx:#eeeeea;--mut:#a0a09a;--bd:#38382f;--ac:#ff7a45;--hi:#5a4a10;--lk:#1b2a44;--ln:#1f5a35;--ok:#2a8a45;--warn:#a8730a;--bad:#c9483a;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#161615;--card:#212120;--tx:#eeeeea;--mut:#a0a09a;--bd:#38382f;--ac:#ff7a45;--hi:#5a4a10;--lk:#1b2a44;--ln:#1f5a35;--ok:#2a8a45;--warn:#a8730a;--bad:#c9483a;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;padding:16px;max-width:1100px;margin-inline:auto}
+h1{font-size:20px;margin:4px 0 12px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px;margin-bottom:12px}
+#drop{border:2px dashed var(--bd);border-radius:12px;padding:22px;text-align:center;color:var(--mut);cursor:pointer}
+#drop.over{border-color:var(--ac);color:var(--ac)}
+.files{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.chip{background:var(--bg);border:1px solid var(--bd);border-radius:20px;padding:3px 6px 3px 10px;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;max-width:100%}
+.chip b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px}
+.chip .x{border:0;background:transparent;color:var(--mut);padding:0 6px;font-size:16px;line-height:1;cursor:pointer;border-radius:10px}
+.chip .x:hover{color:var(--bad)}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+input[type=text],select{padding:11px 12px;border:1px solid var(--bd);border-radius:10px;background:var(--bg);color:var(--tx);font-size:16px}
+input[type=text]{flex:1;min-width:200px}
+button{padding:11px 16px;border:0;border-radius:10px;background:var(--ac);color:#fff;font-weight:600;font-size:15px;cursor:pointer}
+button.sec{background:var(--bg);color:var(--tx);border:1px solid var(--bd);padding:6px 10px;font-size:12px}
+button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible,.chip:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+label{font-size:13px;color:var(--mut);display:inline-flex;align-items:center;gap:5px;margin:8px 14px 0 0}
+.sum{color:var(--mut);font-size:13px;margin:6px 0 12px}
+.fh{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.fh h3{margin:0;font-size:15px;word-break:break-all}
+.badge{font-size:11px;border-radius:10px;padding:2px 8px;background:var(--hi);margin-left:6px;font-weight:400;white-space:nowrap}
+.badge.l{background:var(--lk)}
+.badge.t{background:var(--lk);margin-left:0}
+.badge.w{background:var(--warn);color:#fff;margin-left:0}
+.wrap{overflow-x:auto;border:1px solid var(--bd);border-radius:8px;max-height:70vh}
+table{border-collapse:collapse;font-size:12px;width:max-content;min-width:100%}
+th,td{padding:5px 8px;border-bottom:1px solid var(--bd);text-align:left;white-space:nowrap;max-width:320px;overflow:hidden;text-overflow:ellipsis}
+th{background:var(--bg);position:sticky;top:0;z-index:1}
+tr.lk td{background:var(--lk)}
+td.m{background:var(--hi)!important;font-weight:700;box-shadow:inset 0 0 0 1px var(--ac)}
+td.k{background:var(--ln)!important;font-weight:600}
+mark{background:var(--ac);color:#fff;border-radius:3px;padding:0 2px}
+.legend{display:flex;flex-wrap:wrap;gap:12px;align-items:center;font-size:12px;color:var(--mut);margin:4px 0 8px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;border:1px solid var(--bd);vertical-align:-2px;margin-right:4px}
+.err{color:var(--bad);font-size:13px}
+.note{font-size:13px;border-left:3px solid var(--warn);background:var(--bg);padding:6px 10px;margin:0 0 8px;border-radius:0 8px 8px 0}
+.pills{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 4px}
+.pills .badge{margin:0}
+details.card>summary{cursor:pointer;font-weight:600;font-size:14px}
+.tree{margin:10px 0 0;font-size:13px}
+.tree .nd{padding:3px 0}
+.tree .nd small{color:var(--mut)}
+.tree .kids{margin-left:8px;padding-left:14px;border-left:2px solid var(--bd)}
+.tree .off{opacity:.55}
+.cov{width:100%;font-size:13px;margin-top:10px;border-collapse:collapse}
+.cov td{white-space:normal;max-width:none;padding:5px 6px;border-bottom:1px solid var(--bd)}
+.pc{border-radius:10px;padding:1px 8px;font-size:11px;font-weight:600;color:#fff;white-space:nowrap}
+.pc.ok{background:var(--ok)}.pc.warn{background:var(--warn)}.pc.bad{background:var(--bad)}.pc.na{background:var(--mut)}
+</style>
+</head>
+<body>
+<h1>Parquet Search</h1>
+
+<div class="card">
+  <div id="drop" tabindex="0" role="button" aria-label="Choose files">Drop parquet, CSV or ZIP files here or tap to choose<br><small>Files stay on your device</small></div>
+  <input id="fi" type="file" accept=".parquet,.csv,.zip" multiple hidden>
+  <div id="status" class="sum" role="status"></div>
+  <div id="files" class="files"></div>
+  <input id="fd" type="file" webkitdirectory multiple hidden>
+  <div class="row" style="margin-top:10px">
+    <button class="sec" id="fdbtn">Choose a folder</button>
+    <button class="sec" id="zipbtn">Convert all to CSV (ZIP)</button>
+    <button class="sec" id="clrbtn">Clear all</button>
+    <span class="sum" style="margin:0;align-self:center">Tap a file chip to download just that CSV</span>
+  </div>
+</div>
+
+<details class="card" id="model" open hidden>
+  <summary>How your files link together</summary>
+  <div id="modelBody"></div>
+</details>
+
+<div class="card">
+  <div class="row">
+    <select id="field" aria-label="Search field">
+      <option value="auto">Any ID (auto-detect)</option>
+      <option value="order_number">Order number</option>
+      <option value="order_hash_id">Order hash ID</option>
+      <option value="stop_hash_id">Stop hash ID</option>
+      <option value="route_hash_id">Route hash ID</option>
+      <option value="item_hash_id">Item hash ID</option>
+      <option value="anno_hash_id">Annotation hash ID</option>
+      <option value="hist_hash_id">History hash ID</option>
+      <option value="event_hash_id">Event hash ID</option>
+    </select>
+    <input id="q" type="text" placeholder="Paste one or more IDs (separate with commas or spaces)…" autocomplete="off" aria-label="Search value">
+    <button id="go">Search</button>
+  </div>
+  <label><input type="checkbox" id="part"> Partial match (slower)</label>
+  <label><input type="checkbox" id="hide" checked> Hide empty columns</label>
+  <label><input type="checkbox" id="exp" checked> Route search also shows its orders</label>
+  <div class="sum">Order → stop → route → events. Stops are the bridge between orders and routes. Results are shown in the order Orders → Stops → Routes → Settlements → others.</div>
+</div>
+<div id="sum" class="sum" role="status"></div>
+<div id="legend" class="legend" hidden><span><i style="background:var(--hi);box-shadow:inset 0 0 0 1px var(--ac)"></i>Searched value</span><span><i style="background:var(--ln)"></i>Linking key (order, stop or route ID)</span><span><i style="background:var(--lk)"></i>Linked row</span></div>
+<div id="out"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
+<script type="module">
+const $=id=>document.getElementById(id);
+
+/*ENGINE-START*/
+const KEYS=["order_number","order_hash_id","stop_hash_id","route_hash_id","item_hash_id","anno_hash_id","hist_hash_id","event_hash_id"];
+// Which file type "owns" each key. null = every file that carries an order key.
+const OWN={order_number:null,order_hash_id:null,stop_hash_id:["stops"],route_hash_id:["routes"],item_hash_id:["items"],anno_hash_id:["annotations"],hist_hash_id:["histories"],event_hash_id:["events"]};
+const ORDER_SIDE=["orders","items","annotations","histories","stops"];
+const TYPE_ORDER=["orders","stops","routes","settlements","items","annotations","histories","events","other"];
+const LABEL={orders:"Orders",stops:"Stops",routes:"Routes",settlements:"Settlements",items:"Items",annotations:"Annotations",histories:"Histories",events:"Events",other:"Other"};
+// [child type, child column, parent type, parent column]
+const LINKS=[
+  ["stops","order_hash_id","orders","order_hash_id"],
+  ["items","order_hash_id","orders","order_hash_id"],
+  ["annotations","order_hash_id","orders","order_hash_id"],
+  ["histories","order_hash_id","orders","order_hash_id"],
+  ["items","order_hash_id","stops","order_hash_id"],
+  ["annotations","order_hash_id","stops","order_hash_id"],
+  ["histories","order_hash_id","stops","order_hash_id"],
+  ["stops","route_hash_id","routes","route_hash_id"],
+  ["events","route_hash_id","routes","route_hash_id"],
+  ["events","route_hash_id","stops","route_hash_id"]
+];
+const str=v=>{
+  if(v==null)return"";
+  if(typeof v==="bigint")return v.toString();
+  if(v instanceof Date)return isNaN(v)?"":v.toISOString();
+  if(v instanceof Uint8Array)return Array.from(v,b=>b.toString(16).padStart(2,"0")).join("");
+  if(typeof v==="object")return JSON.stringify(v,(k,x)=>typeof x==="bigint"?x.toString():x);
+  return String(v);
+};
+const norm=v=>String(v??"").trim().toLowerCase();
+
+// Identify a dataset from its columns first (reliable), then from its file name.
+function detectType(cols,name){
+  const c=new Set(cols.map(norm));
+  if(/settle/i.test(String(name).split("/").pop()))return"settlements";
+  if(c.has("event_hash_id"))return"events";
+  if(c.has("item_hash_id"))return"items";
+  if(c.has("anno_hash_id"))return"annotations";
+  if(c.has("hist_hash_id"))return"histories";
+  if(c.has("stop_hash_id"))return"stops";
+  if(cols.some(x=>/^settle/.test(norm(x)))&&!c.has("number_of_stops"))return"settlements";
+  if(c.has("order_hash_id")&&c.has("order_number"))return"orders";
+  if(c.has("route_hash_id"))return"routes";
+  const n=String(name).toLowerCase().split("/").pop().replace(/\.(parquet|csv)$/,"");
+  if(/event/.test(n))return"events";
+  if(/annotation/.test(n))return"annotations";
+  if(/histor/.test(n))return"histories";
+  if(/(^|[_-])stops?([_-]|$)/.test(n))return"stops";
+  if(/(^|[_-])routes?([_-]|$)/.test(n))return"routes";
+  if(/(^|[_-])items?([_-]|$)/.test(n))return"items";
+  if(/(^|[_-])orders?([_-]|$)/.test(n))return"orders";
+  return"other";
+}
+// s.rows holds the raw parsed rows. Only the key columns are stringified and indexed up front.
+function buildIndexes(s){
+  s.col={};
+  for(const c of s.cols){const n=norm(c);if(KEYS.includes(n)&&!s.col[n])s.col[n]=c}
+  s.type=detectType(s.cols,s.name);
+  s.idx={};
+  for(const k in s.col){
+    const c=s.col[k],m=new Map(),rows=s.rows;
+    for(let i=0;i<rows.length;i++){
+      const v=norm(str(rows[i][c]));
+      if(!v)continue;
+      const a=m.get(v);
+      if(a)a.push(i);else m.set(v,[i]);
+    }
+    s.idx[k]=m;
+  }
+  return s;
+}
+const keyOf=(s,i,k)=>{const c=s.col[k];return c?norm(str(s.rows[i][c])):""};
+function matchRows(s,key,q,partial){
+  const m=s.idx[key];
+  if(!m)return[];
+  if(!partial)return m.get(q)||[];
+  const out=[];
+  for(const[v,ids]of m)if(v.includes(q))for(const i of ids)out.push(i);
+  return out;
+}
+
+// Follows the relationships and returns direct matches plus linked rows for each file.
+//   order/item/annotation/history/stop  -> order side -> its stops -> their routes -> route events
+//   route/event                         -> route + events + its stops (+ their orders if expandRoute)
+function runSearch(store,{field,vals,partial,expandRoute}){
+  const hit=new Map(store.map(s=>[s,{d:new Set(),l:new Set()}]));
+  const mark=(s,i,kind)=>{
+    const h=hit.get(s);
+    if(kind==="d"){h.l.delete(i);h.d.add(i)}else if(!h.d.has(i))h.l.add(i);
+  };
+  const K={order_hash_id:new Set(),order_number:new Set(),stop_hash_id:new Set(),route_hash_id:new Set()};
+  const take=(s,i,keys=Object.keys(K))=>{for(const k of keys){const v=keyOf(s,i,k);if(v)K[k].add(v)}};
+  const size=()=>K.order_hash_id.size+K.order_number.size+K.stop_hash_id.size+K.route_hash_id.size;
+  const usedFields=new Set();
+
+  // 1. direct matches
+  const fields=field==="auto"?KEYS:[field];
+  for(const q of vals){
+    for(const f of fields){
+      let any=false;
+      const scan=owned=>{
+        for(const s of store){
+          if(owned&&!owned.includes(s.type))continue;
+          for(const i of matchRows(s,f,q,partial)){mark(s,i,"d");take(s,i);any=true}
+        }
+      };
+      scan(OWN[f]);
+      if(!any&&OWN[f])scan(null); // owner file not loaded: fall back to any file with that column
+      if(any){usedFields.add(f);if(field==="auto")break}
+    }
+  }
+  const fromRoute=(usedFields.has("route_hash_id")||usedFields.has("event_hash_id"))&&
+    !["order_number","order_hash_id","stop_hash_id","item_hash_id","anno_hash_id","hist_hash_id"].some(f=>usedFields.has(f));
+
+  // generic "pull rows whose key is in a set" helper
+  const pull=(types,key,set,onRow)=>{
+    if(!set.size)return;
+    for(const s of store){
+      if(!types.includes(s.type)||!s.idx[key])continue;
+      for(const v of set){
+        const ids=s.idx[key].get(v);
+        if(ids)for(const i of ids){mark(s,i,"l");if(onRow)onRow(s,i)}
+      }
+    }
+  };
+  const orderSide=()=>{
+    const onRow=(s,i)=>{
+      take(s,i,["order_hash_id","order_number"]);
+      if(s.type==="stops"){take(s,i,["stop_hash_id"]);if(!fromRoute)take(s,i,["route_hash_id"])}
+    };
+    let prev;
+    do{
+      prev=size();
+      pull(ORDER_SIDE,"order_hash_id",K.order_hash_id,onRow);
+      pull(ORDER_SIDE,"order_number",K.order_number,onRow);
+    }while(size()>prev);
+  };
+
+  // 2. expand along relationships
+  if(fromRoute){
+    pull(["stops"],"route_hash_id",K.route_hash_id,(s,i)=>{if(expandRoute)take(s,i,["order_hash_id","order_number","stop_hash_id"])});
+    if(expandRoute)orderSide();
+  }else{
+    orderSide();
+  }
+  pull(["routes","events"],"route_hash_id",K.route_hash_id);
+  // settlement files can carry any of the link keys
+  for(const k of Object.keys(K))pull(["settlements"],k,K[k]);
+
+  // 3. explain gaps in the chain
+  const notes=[];
+  const has=t=>store.some(s=>s.type===t);
+  const found=t=>store.some(s=>s.type===t&&hit.get(s).d.size+hit.get(s).l.size>0);
+  if(!fromRoute&&(K.order_hash_id.size||K.order_number.size)){
+    if(has("orders")&&!found("orders"))notes.push("The order record isn’t in the loaded orders file.");
+    if(has("stops")&&!found("stops"))notes.push("No stop for this order is in the loaded stops file, so its route and events can’t be traced.");
+  }
+  if(K.route_hash_id.size&&has("routes")&&!found("routes"))notes.push("The route referenced by these stops isn’t in the loaded routes file.");
+  else if(K.route_hash_id.size&&has("routes")){
+    const miss=[...K.route_hash_id].filter(r=>!store.some(s=>s.type==="routes"&&s.idx.route_hash_id?.has(r))).length;
+    if(miss)notes.push(`${miss} of ${K.route_hash_id.size} routes referenced by these stops aren’t in the loaded routes file.`);
+  }
+  const res=store.map(s=>{
+    const h=hit.get(s),num=(a,b)=>a-b;
+    return{s,d:[...h.d].sort(num),l:[...h.l].filter(i=>!h.d.has(i)).sort(num)};
+  });
+  return{res,notes,fromRoute,K};
+}
+
+// How many distinct child keys are found in the parent file, per relationship.
+function coverage(store){
+  return LINKS.map(([ct,ck,pt,pk])=>{
+    const cs=store.filter(s=>s.type===ct&&s.idx[ck]),ps=store.filter(s=>s.type===pt&&s.idx[pk]);
+    if(!cs.length||!ps.length)return{ct,ck,pt,pk,n:null};
+    const keys=new Set(),have=new Set();
+    for(const s of cs)for(const k of s.idx[ck].keys())keys.add(k);
+    for(const s of ps)for(const k of s.idx[pk].keys())have.add(k);
+    let hitN=0;
+    for(const k of keys)if(have.has(k))hitN++;
+    return{ct,ck,pt,pk,n:keys.size,hit:hitN};
+  });
+}
+
+// RFC 4180 CSV parser (quoted fields, escaped quotes, embedded newlines, BOM). "NaT" becomes empty.
+function parseCsv(t){
+  if(t.charCodeAt(0)===0xFEFF)t=t.slice(1);
+  const rows=[],n=t.length,re=/[,\r\n]/g;
+  let row=[],i=0;
+  while(i<n){
+    let f;
+    if(t.charCodeAt(i)===34){
+      i++;f="";
+      for(;;){
+        const j=t.indexOf('"',i);
+        if(j<0){f+=t.slice(i);i=n;break}
+        f+=t.slice(i,j);
+        if(t.charCodeAt(j+1)===34){f+='"';i=j+2}else{i=j+1;break}
+      }
+      re.lastIndex=i;const m=re.exec(t),e=m?m.index:n;
+      if(e>i)f+=t.slice(i,e);
+      i=e;
+    }else{
+      re.lastIndex=i;const m=re.exec(t),e=m?m.index:n;
+      f=t.slice(i,e);i=e;
+    }
+    row.push(f);
+    const d=t[i];
+    if(d===","){i++;if(i>=n){row.push("");rows.push(row);row=[]}}
+    else{
+      if(d==="\r"&&t[i+1]==="\n")i++;
+      if(d!==undefined)i++;
+      rows.push(row);row=[];
+    }
+  }
+  const body=rows.filter(r=>!(r.length===1&&r[0]===""));
+  if(!body.length)return{cols:[],rows:[]};
+  const cols=body[0].map(c=>c.trim());
+  const out=new Array(body.length-1);
+  for(let r=1;r<body.length;r++){
+    const src=body[r],o={};
+    for(let c=0;c<cols.length;c++){const v=src[c];o[cols[c]]=(v===undefined||v==="NaT")?"":v}
+    out[r-1]=o;
+  }
+  return{cols,rows:out};
+}
+const cq=v=>'"'+String(v).replace(/"/g,'""')+'"';
+function csvOf(s,idx){
+  const out=[s.cols.map(cq).join(",")];
+  const list=idx||s.rows.keys();
+  for(const i of list){
+    const r=s.rows[i];
+    out.push(s.cols.map(c=>cq(str(r[c]))).join(","));
+  }
+  return out.join("\n");
+}
+/*ENGINE-END*/
+
+// ---------- loading ----------
+let libP=null;
+function getLib(){
+  if(!libP){
+    libP=(async()=>{
+      const hp=await import("https://cdn.jsdelivr.net/npm/hyparquet@1.17.1/+esm");
+      let comp;
+      try{comp=(await import("https://cdn.jsdelivr.net/npm/hyparquet-compressors@1.1.1/+esm")).compressors}catch(e){comp=undefined}
+      return{hp,comp};
+    })().catch(e=>{libP=null;throw e});
+  }
+  return libP;
+}
+getLib().catch(()=>{}); // warm up in the background; the page stays usable meanwhile
+
+const store=[];
+let view=null;
+const limits=new Map();
+const LIM=200;
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const ext=n=>(String(n).toLowerCase().match(/\.(parquet|csv|zip)$/)||[])[1];
+const base=n=>n.split("/").pop();
+const setStatus=(t,isErr)=>{$("status").innerHTML=isErr?`<span class="err">${t}</span>`:esc(t)};
+const tick=()=>new Promise(r=>setTimeout(r));
+
+async function expand(f){
+  const name=f.webkitRelativePath||f.name,e=ext(f.name);
+  if(e==="parquet"||e==="csv")return[{name,kind:e,file:f}];
+  if(e==="zip"){
+    if(!window.JSZip)throw new Error("ZIP library failed to load");
+    const z=await JSZip.loadAsync(f);
+    return Object.values(z.files)
+      .filter(x=>!x.dir&&ext(x.name)&&ext(x.name)!=="zip"&&!/(^|\/)(__MACOSX|\.)/.test(x.name))
+      .map(x=>({name:x.name,kind:ext(x.name),entry:x}));
+  }
+  return[];
+}
+async function readJob(j){
+  if(j.kind==="csv"){
+    const text=j.entry?await j.entry.async("string"):await j.file.text();
+    const{cols,rows}=parseCsv(text);
+    return{name:j.name,cols,rows};
+  }
+  const buf=j.entry?await j.entry.async("arraybuffer"):await j.file.arrayBuffer();
+  const{hp,comp}=await getLib();
+  const rows=await hp.parquetReadObjects({file:buf,compressors:comp});
+  const cols=rows.length?Object.keys(rows[0]):(await hp.parquetMetadataAsync(buf)).schema.slice(1).map(x=>x.name);
+  return{name:j.name,cols,rows};
+}
+async function load(files){
+  files=[...files];
+  if(!files.length)return;
+  setStatus("Preparing…");
+  const failed=[];
+  let jobs=[];
+  for(const f of files){
+    try{jobs.push(...await expand(f))}catch(e){failed.push(`${f.name}: ${e.message||e}`)}
+  }
+  let cursor=0,done=0;
+  // Few parallel readers keeps the browser responsive and memory bounded.
+  const worker=async()=>{
+    while(cursor<jobs.length){
+      const j=jobs[cursor++];
+      setStatus(`Reading ${++done}/${jobs.length}: ${j.name}`);
+      await tick();
+      try{
+        const rec=buildIndexes(await readJob(j));
+        const i=store.findIndex(s=>s.name===rec.name);
+        if(i>=0)store[i]=rec;else store.push(rec);
+      }catch(e){failed.push(`${j.name}: ${e.message||String(e)}`)}
+    }
+  };
+  await Promise.all(Array.from({length:Math.min(3,jobs.length)},worker));
+  if(failed.length)setStatus(`Loaded with ${failed.length} error(s): ${failed.slice(0,4).map(esc).join("<br>")}`,true);
+  else setStatus(`Loaded ${jobs.length} file(s). Search indexes are ready.`);
+  view=null;$("out").innerHTML="";$("legend").hidden=true;$("sum").textContent="";
+  renderFiles();renderModel();
+}
+
+// ---------- file chips ----------
+function renderFiles(){
+  $("files").innerHTML=store.map((s,i)=>
+    `<span class="chip" data-i="${i}" tabindex="0" title="${esc(s.name)} — click to download as CSV"><b>${esc(base(s.name))}</b><span class="badge ${s.type==="other"?"w":"t"}">${LABEL[s.type]}</span>${s.rows.length.toLocaleString()} rows<button class="x" data-x="${i}" aria-label="Remove ${esc(base(s.name))}" title="Remove">×</button></span>`
+  ).join("");
+}
+$("files").addEventListener("click",e=>{
+  const x=e.target.closest("[data-x]");
+  if(x){
+    e.stopPropagation();
+    store.splice(+x.dataset.x,1);
+    view=null;$("out").innerHTML="";$("legend").hidden=true;$("sum").textContent="";
+    renderFiles();renderModel();
+    return;
+  }
+  const c=e.target.closest("[data-i]");
+  if(c){const s=store[+c.dataset.i];save(new Blob(["\ufeff"+csvOf(s)],{type:"text/csv"}),csvName(s.name))}
+});
+$("files").addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.matches("[data-i]"))e.target.click()});
+
+// ---------- relationship panel ----------
+function renderModel(){
+  $("model").hidden=!store.length;
+  if(!store.length){$("modelBody").innerHTML="";return}
+  const rowsOf=t=>store.filter(s=>s.type===t).reduce((a,s)=>a+s.rows.length,0);
+  const node=(t,note)=>{
+    const n=rowsOf(t);
+    return `<div class="nd ${n?"":"off"}"><b>${LABEL[t]}</b> <span class="badge t">${n?n.toLocaleString()+" rows":"not loaded"}</span> <small>${note}</small></div>`;
+  };
+  const tree=
+    node("orders","one row per order · order_hash_id / order_number")+
+    `<div class="kids">`+
+      node("items","line items · linked by order_hash_id")+
+      node("annotations","photos and notes · linked by order_hash_id")+
+      node("histories","status history · linked by order_hash_id")+
+      node("stops","the bridge: each stop carries order_hash_id and route_hash_id")+
+      `<div class="kids">`+
+        node("routes","one row per route · stops point to it by route_hash_id")+
+        (rowsOf("settlements")?node("settlements","linked by whichever order, stop or route key the file carries"):"")+
+        `<div class="kids">`+node("events","lunch, reload and other route events · linked by route_hash_id")+`</div>`+
+      `</div>`+
+    `</div>`;
+  const other=store.filter(s=>s.type==="other");
+  const cov=coverage(store).filter(c=>c.n!==null);
+  const covHtml=cov.length?`<table class="cov"><tbody>${cov.map(c=>{
+    const p=c.n?Math.round(c.hit/c.n*100):0,cls=!c.n?"na":p>=90?"ok":p>0?"warn":"bad";
+    return `<tr><td>${LABEL[c.ct]} → ${LABEL[c.pt]} <small style="color:var(--mut)">on ${c.ck}</small></td><td><span class="pc ${cls}">${c.n?`${c.hit.toLocaleString()} of ${c.n.toLocaleString()} (${p}%)`:"no keys"}</span></td></tr>`;
+  }).join("")}</tbody></table>
+  <div class="sum">Low coverage means the matching parent rows aren’t in the loaded files (for example, files exported from different samples). Searches can only link rows that are loaded.</div>`:"";
+  $("modelBody").innerHTML=`<div class="tree">${tree}</div>`+
+    (other.length?`<div class="note" style="margin-top:8px">${other.length} file(s) weren’t recognized and are ignored: ${other.map(s=>esc(base(s.name))).join(", ")}</div>`:"")+covHtml;
+}
+
+// ---------- input wiring ----------
+const accepted=f=>ext(f.name);
+$("drop").onclick=()=>$("fi").click();
+$("drop").addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();$("fi").click()}});
+$("fi").onchange=e=>{load([...e.target.files].filter(accepted));e.target.value=""};
+$("fdbtn").onclick=()=>$("fd").click();
+$("fd").onchange=e=>{load([...e.target.files].filter(accepted));e.target.value=""};
+$("drop").ondragover=e=>{e.preventDefault();$("drop").classList.add("over")};
+$("drop").ondragleave=()=>$("drop").classList.remove("over");
+$("drop").ondrop=e=>{e.preventDefault();$("drop").classList.remove("over");load([...e.dataTransfer.files].filter(accepted))};
+$("clrbtn").onclick=()=>{
+  store.length=0;view=null;
+  $("out").innerHTML="";$("legend").hidden=true;$("sum").textContent="";setStatus("");
+  renderFiles();renderModel();
+};
+
+// ---------- search ----------
+function search(){
+  const field=$("field").value;
+  const vals=[...new Set($("q").value.split(/[\s,;]+/).map(norm).filter(Boolean))];
+  if(!store.length){$("sum").textContent="Upload parquet files first.";return}
+  if(!vals.length){$("sum").textContent="Enter a value to search.";return}
+  if(field!=="auto"&&!store.some(s=>s.idx[field])){
+    $("sum").textContent=`None of the loaded files has a ${field} column.`;$("out").innerHTML="";$("legend").hidden=true;return;
+  }
+  const t0=performance.now();
+  const r=runSearch(store,{field,vals,partial:$("part").checked,expandRoute:$("exp").checked});
+  view={...r,vals,partial:$("part").checked,ms:Math.round(performance.now()-t0),field};
+  limits.clear();
+  show();
+}
+function show(){
+  const{res,vals,partial,notes,ms,field}=view;
+  const hide=$("hide").checked;
+  const{K}=view;
+  const hitVal=n=>n&&vals.find(q=>partial?n.includes(q):n===q);
+  const LINKK=["order_hash_id","order_number","stop_hash_id","route_hash_id"];
+  const markPart=(v,q)=>{
+    const at=v.toLowerCase().indexOf(q);
+    return at<0?esc(v):esc(v.slice(0,at))+"<mark>"+esc(v.slice(at,at+q.length))+"</mark>"+esc(v.slice(at+q.length));
+  };
+  const ordered=res.map((r,ri)=>({...r,ri})).filter(r=>r.d.length+r.l.length)
+    .sort((a,b)=>TYPE_ORDER.indexOf(a.s.type)-TYPE_ORDER.indexOf(b.s.type)||a.s.name.localeCompare(b.s.name));
+  let nd=0,nl=0,html="";
+  const byType={};
+  for(const r of ordered){
+    nd+=r.d.length;nl+=r.l.length;
+    byType[r.s.type]=(byType[r.s.type]||0)+r.d.length+r.l.length;
+    const total=r.d.length+r.l.length,lim=limits.get(r.ri)||LIM;
+    const shown=[...r.d.map(i=>[i,0]),...r.l.map(i=>[i,1])].slice(0,lim);
+    let cols=r.s.cols.map((c,ci)=>ci);
+    if(hide)cols=cols.filter(ci=>{const c=r.s.cols[ci];return shown.some(([i])=>str(r.s.rows[i][c])!=="")});
+    const kn=ci=>norm(r.s.cols[ci]);
+    const lk=cols.map(ci=>LINKK.includes(kn(ci))?kn(ci):null);
+    html+=`<div class="card"><div class="fh"><h3>${esc(base(r.s.name))}<span class="badge t">${LABEL[r.s.type]}</span><span class="badge">${r.d.length} match</span>${r.l.length?`<span class="badge l">${r.l.length} linked</span>`:""}</h3><button class="sec" data-dl="${r.ri}">Download CSV</button></div><div class="wrap"><table><tr>${cols.map(ci=>`<th>${esc(r.s.cols[ci])}</th>`).join("")}</tr>`;
+    for(const[i,l]of shown){
+      const row=r.s.rows[i];
+      html+=`<tr class="${l?"lk":""}">`;
+      cols.forEach((ci,k)=>{
+        const v=str(row[r.s.cols[ci]]),n=norm(v),q=hitVal(n);
+        const isLink=!q&&lk[k]&&n&&K[lk[k]].has(n);
+        html+=`<td${q?' class="m"':isLink?' class="k"':""}${v.length>30?` title="${esc(v)}"`:""}>${q&&partial?markPart(v,q):esc(v)}</td>`;
+      });
+      html+="</tr>";
+    }
+    html+="</table></div>";
+    if(total>lim)html+=`<div class="sum">Showing ${lim.toLocaleString()} of ${total.toLocaleString()} rows (CSV has all). <button class="sec" data-more="${r.ri}">Show ${Math.min(LIM*5,total-lim).toLocaleString()} more</button></div>`;
+    html+="</div>";
+  }
+  const pills=TYPE_ORDER.filter(t=>byType[t]).map(t=>`<span class="badge t">${LABEL[t]} ${byType[t].toLocaleString()}</span>`).join("");
+  let head;
+  if(nd+nl){
+    head=`${nd.toLocaleString()} matching row${nd===1?"":"s"} and ${nl.toLocaleString()} linked row${nl===1?"":"s"} across ${ordered.length} file(s) in ${ms} ms.`;
+  }else{
+    head=field==="auto"?"No matches found in any ID column.":"No matches found.";
+  }
+  $("sum").innerHTML=esc(head)+(pills?`<div class="pills">${pills}</div>`:"")+notes.map(n=>`<div class="note">${esc(n)}</div>`).join("");
+  $("out").innerHTML=html;
+  $("legend").hidden=!ordered.length;
+}
+$("out").addEventListener("click",e=>{
+  const m=e.target.closest("[data-more]");
+  if(m){const ri=+m.dataset.more;limits.set(ri,(limits.get(ri)||LIM)+LIM*5);show();return}
+  const b=e.target.closest("[data-dl]");
+  if(b){
+    const r=view.res[+b.dataset.dl];
+    save(new Blob(["\ufeff"+csvOf(r.s,[...r.d,...r.l])],{type:"text/csv"}),r.s.name.replace(/\.(parquet|csv)$/i,"").replace(/[\/\\]/g,"_")+"_results.csv");
+  }
+});
+$("hide").addEventListener("change",()=>{if(view)show()});
+
+// ---------- export ----------
+const csvName=n=>n.replace(/\.(parquet|csv)$/i,"")+".csv";
+function save(blob,name){
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);a.download=name.replace(/[\/\\]/g,"_");a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),10000);
+}
+$("zipbtn").onclick=async()=>{
+  if(!store.length){setStatus("Upload parquet files first.");return}
+  if(!window.JSZip){setStatus("ZIP library failed to load.",true);return}
+  const zip=new JSZip(),used=new Set();
+  for(const s of store){
+    let n=base(csvName(s.name)),k=1;
+    while(used.has(n))n=base(csvName(s.name)).replace(/\.csv$/,"")+"_"+(++k)+".csv";
+    used.add(n);zip.file(n,"\ufeff"+csvOf(s));
+  }
+  const blob=await zip.generateAsync({type:"blob",compression:"DEFLATE",streamFiles:true},m=>{$("status").textContent="Zipping… "+Math.round(m.percent)+"%"});
+  setStatus("");
+  save(blob,"parquet_csv_export.zip");
+};
+$("go").onclick=search;
+$("q").addEventListener("keydown",e=>{if(e.key==="Enter")search()});
+$("field").addEventListener("change",()=>{
+  const o=$("field").selectedOptions[0];
+  $("q").placeholder=$("field").value==="auto"?"Paste one or more IDs (separate with commas or spaces)…":"Enter "+o.text.toLowerCase()+"s (separate with commas or spaces)…";
+});
+</script>
+</body>
+</html>
